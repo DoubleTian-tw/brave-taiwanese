@@ -1,5 +1,5 @@
 "use client";
-
+import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Crosshair, Plus, Settings } from "lucide-react";
@@ -17,8 +17,18 @@ const MapContainer = dynamic(
     {
         ssr: false,
         loading: () => (
-            <div className="flex-1 flex items-center justify-center bg-gray-200">
-                <p>Loading map...</p>
+            <div className="fixed inset-0 bg-white flex items-center justify-center">
+                <div className="flex flex-col items-center space-y-4">
+                    {/* 旋轉載入圖標 */}
+                    <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+
+                    {/* 載入文字 */}
+                    <div className="text-center">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                            載入中...
+                        </h2>
+                    </div>
+                </div>
             </div>
         ),
     }
@@ -173,7 +183,7 @@ export default function Page() {
             </div>
 
             {/* Fixed Bottom Search Bar */}
-            <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-1/3 min-w-80 z-[1000]">
+            <div className="fixed bottom-12 left-1/2 transform -translate-x-1/2 w-1/3 min-w-80 z-[1000]">
                 <SearchBar onSearch={setSearchQuery} language={language} />
             </div>
 
