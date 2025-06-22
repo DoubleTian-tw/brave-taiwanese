@@ -1,28 +1,25 @@
-import js from '@eslint/js';
-import globals from 'globals';
-import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
-import tseslint from 'typescript-eslint';
+const { FlatCompat } = require("@eslint/eslintrc");
+const nextPlugin = require("@next/eslint-plugin-next");
+const reactPlugin = require("eslint-plugin-react");
+const hooksPlugin = require("eslint-plugin-react-hooks");
 
-export default tseslint.config(
-  { ignores: ['dist'] },
+const compat = new FlatCompat();
+
+module.exports = [
   {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['**/*.{ts,tsx}'],
-    languageOptions: {
-      ecmaVersion: 2020,
-      globals: globals.browser,
-    },
+    files: ["**/*.ts", "**/*.tsx"],
     plugins: {
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
+      "@next/next": nextPlugin,
+      "react": reactPlugin,
+      "react-hooks": hooksPlugin,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      ...hooksPlugin.configs.recommended.rules,
+
+      // De-activate some of the Next.js rules we don't need for now
+      "@next/next/no-html-link-for-pages": "off",
     },
-  }
-);
+  },
+];
