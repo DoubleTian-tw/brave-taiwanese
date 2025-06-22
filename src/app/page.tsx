@@ -1,12 +1,14 @@
+"use client";
+
 import React, { useState } from "react";
 import dynamic from "next/dynamic";
 import { Crosshair, Plus, Settings } from "lucide-react";
-import { Language, RadiusOption, Hotspot } from "./types";
-import { useGeolocation } from "./hooks/useGeolocation";
-import { translations } from "./utils/translations";
-// Dynamically import MapContainer with SSR turned off
+import { Language, RadiusOption, Hotspot } from "../types";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { translations } from "../utils/translations";
+
 const MapContainer = dynamic(
-    () => import("./components/MapContainer").then((mod) => mod.MapContainer),
+    () => import("../components/MapContainer").then((mod) => mod.MapContainer),
     {
         ssr: false,
         loading: () => (
@@ -16,11 +18,11 @@ const MapContainer = dynamic(
         ),
     }
 );
-import { SearchBar } from "./components/SearchBar";
-import { HotspotForm } from "./components/HotspotForm";
-import { ToolbarMenu } from "./components/ToolbarMenu";
+import { SearchBar } from "../components/SearchBar";
+import { HotspotForm } from "../components/HotspotForm";
+import { ToolbarMenu } from "../components/ToolbarMenu";
 
-function App() {
+export default function Page() {
     const [language, setLanguage] = useState<Language>("zh");
     const [radius, setRadius] = useState<RadiusOption>(3);
     const [searchQuery, setSearchQuery] = useState("");
@@ -191,5 +193,3 @@ function App() {
         </div>
     );
 }
-
-export default App;
