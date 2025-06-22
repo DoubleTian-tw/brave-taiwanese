@@ -1,6 +1,7 @@
 import React from "react";
 import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import Image from "next/image";
 import { Hotspot, Language } from "../types";
 import { translations } from "../utils/translations";
 import { Calendar, Camera, MapPin } from "lucide-react";
@@ -76,11 +77,13 @@ export const HotspotMarker: React.FC<HotspotMarkerProps> = ({
                         </p>
 
                         {hotspot.photo && (
-                            <div className="relative">
-                                <img
+                            <div className="relative w-full h-32">
+                                <Image
                                     src={hotspot.photo}
                                     alt={hotspot.title}
-                                    className="w-full h-32 object-cover rounded-lg"
+                                    layout="fill"
+                                    objectFit="cover"
+                                    className="rounded-lg"
                                 />
                                 <div className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1">
                                     <Camera className="h-3 w-3 text-white" />

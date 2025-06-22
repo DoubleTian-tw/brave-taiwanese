@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Image from "next/image";
 import { X, Camera, AlertTriangle } from "lucide-react";
 import { Hotspot, Language } from "@/types";
 import { translations } from "@/utils/translations";
@@ -149,10 +150,12 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                                 htmlFor="photo-upload"
                                 className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors duration-200">
                                 {photo ? (
-                                    <img
+                                    <Image
                                         src={photo}
                                         alt="Preview"
-                                        className="w-full h-full object-cover rounded-lg"
+                                        layout="fill"
+                                        objectFit="cover"
+                                        className="rounded-lg"
                                     />
                                 ) : (
                                     <div className="text-center">
