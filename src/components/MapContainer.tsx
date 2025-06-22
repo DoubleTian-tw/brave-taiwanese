@@ -7,7 +7,7 @@ import {
     useMapEvents,
     useMap,
 } from "react-leaflet";
-import { divIcon, marker as createMarker } from "leaflet";
+import { icon, marker as createMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
     Shelter,
@@ -87,20 +87,17 @@ const UserLocationMarker: React.FC<{ location: UserLocation }> = ({
     const map = useMap();
 
     useEffect(() => {
-        const userIcon = divIcon({
-            html: `
-        <div class="relative">
-          <div class="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
-          <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-blue-600 bg-opacity-20 rounded-full animate-ping"></div>
-        </div>
-      `,
-            className: "user-location-marker",
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
+        const userMarkerIcon = icon({
+            iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" fill="#3B82F6"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>'
+            )}`,
+            iconSize: [32, 32], // The size of the icon image.
+            iconAnchor: [16, 32], // Point of the icon which will correspond to marker's location.
+            popupAnchor: [0, -32], // Point from which the popup should open relative to the iconAnchor.
         });
 
         const marker = createMarker([location.lat, location.lng], {
-            icon: userIcon,
+            icon: userMarkerIcon,
         }).addTo(map);
 
         return () => {
