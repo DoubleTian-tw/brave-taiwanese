@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Crosshair, Plus, Settings } from "lucide-react";
 import { Language, RadiusOption, Hotspot } from "../types";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { translations } from "../utils/translations";
+import { SearchBar } from "../components/SearchBar";
+import { HotspotForm } from "../components/HotspotForm";
+import { ToolbarMenu } from "../components/ToolbarMenu";
+import { Toast } from "../components/Toast";
 
 const MapContainer = dynamic(
     () => import("../components/MapContainer").then((mod) => mod.MapContainer),
@@ -18,9 +22,6 @@ const MapContainer = dynamic(
         ),
     }
 );
-import { SearchBar } from "../components/SearchBar";
-import { HotspotForm } from "../components/HotspotForm";
-import { ToolbarMenu } from "../components/ToolbarMenu";
 
 export default function Page() {
     const [language, setLanguage] = useState<Language>("zh");
@@ -33,9 +34,42 @@ export default function Page() {
         lat: number;
         lng: number;
     } | null>(null);
+    const [notification, setNotification] = useState<{
+        message: string;
+        type: "success" | "error";
+    } | null>(null);
 
     const { location, loading, error, getCurrentLocation } = useGeolocation();
     const t = translations[language];
+
+    useEffect(() => {
+        if (error) {
+            setNotification({
+                message: `${t.locationError}: ${error}`,
+                type: "error",
+            });
+        } else {
+            setNotification((current) =>
+                current?.type === "error" ? null : current
+            );
+        }
+    }, [error, t.locationError]);
+
+    useEffect(() => {
+        if (location && !loading) {
+            const message =
+                language === "zh" ? "位置已更新" : "Location updated";
+            setNotification({ message, type: "success" });
+
+            const timer = setTimeout(() => {
+                setNotification((current) =>
+                    current?.type === "success" ? null : current
+                );
+            }, 3000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [location, loading, language]);
 
     const handleAddHotspot = (position: { lat: number; lng: number }) => {
         setNewHotspotPosition(position);
@@ -167,28 +201,13 @@ export default function Page() {
                 />
             )}
 
-            {/* Location Error Toast */}
-            {error && (
-                <div className="absolute top-20 left-4 right-4 z-[1000]">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 shadow-sm">
-                        <span className="text-sm text-red-700">
-                            {t.locationError}: {error}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {/* Location Success Toast */}
-            {location && !loading && (
-                <div className="absolute bottom-40 right-4 z-[1000] animate-fade-in-out">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 shadow-sm">
-                        <span className="text-xs text-green-700">
-                            {language === "zh"
-                                ? "位置已更新"
-                                : "Location updated"}
-                        </span>
-                    </div>
-                </div>
+            {/* Toast Notifications */}
+            {notification && (
+                <Toast
+                    message={notification.message}
+                    type={notification.type}
+                    onClose={() => setNotification(null)}
+                />
             )}
         </div>
     );
