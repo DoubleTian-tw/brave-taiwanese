@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Crosshair, Plus, Settings } from "lucide-react";
+import { toast } from "sonner";
 import { Language, RadiusOption, Hotspot } from "../types";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { translations } from "../utils/translations";
 import { SearchBar } from "../components/SearchBar";
-import { HotspotForm } from "../components/HotspotForm";
-import { ToolbarMenu } from "../components/ToolbarMenu";
-import { Toast } from "../components/Toast";
+import { HotspotForm } from "@/components/HotspotForm";
+import { ToolbarMenu } from "@/components/ToolbarMenu";
+import { Button } from "@/components/ui/button";
 
 const MapContainer = dynamic(
     () => import("../components/MapContainer").then((mod) => mod.MapContainer),
@@ -34,24 +35,13 @@ export default function Page() {
         lat: number;
         lng: number;
     } | null>(null);
-    const [notification, setNotification] = useState<{
-        message: string;
-        type: "success" | "error";
-    } | null>(null);
 
     const { location, loading, error, getCurrentLocation } = useGeolocation();
     const t = translations[language];
 
     useEffect(() => {
         if (error) {
-            setNotification({
-                message: `${t.locationError}: ${error}`,
-                type: "error",
-            });
-        } else {
-            setNotification((current) =>
-                current?.type === "error" ? null : current
-            );
+            toast.error(`${t.locationError}: ${error}`);
         }
     }, [error, t.locationError]);
 
@@ -59,15 +49,7 @@ export default function Page() {
         if (location && !loading) {
             const message =
                 language === "zh" ? "位置已更新" : "Location updated";
-            setNotification({ message, type: "success" });
-
-            const timer = setTimeout(() => {
-                setNotification((current) =>
-                    current?.type === "success" ? null : current
-                );
-            }, 3000);
-
-            return () => clearTimeout(timer);
+            toast.success(message);
         }
     }, [location, loading, language]);
 
@@ -116,9 +98,11 @@ export default function Page() {
                 />
 
                 {/* Floating Toolbar Button */}
-                <button
+                <Button
+                    variant="outline"
+                    size="icon"
                     onClick={toggleToolbar}
-                    className={`absolute bottom-40 right-4 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center z-[1000] transition-all duration-200 ${
+                    className={`absolute bottom-40 right-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-[1000] transition-all duration-200 ${
                         showToolbar
                             ? "bg-blue-50 border-blue-300 scale-110"
                             : "hover:shadow-xl hover:scale-105 active:scale-95"
@@ -129,7 +113,7 @@ export default function Page() {
                             showToolbar ? "text-blue-600" : "text-gray-600"
                         } transition-colors duration-200`}
                     />
-                </button>
+                </Button>
 
                 {/* Toolbar Menu */}
                 <ToolbarMenu
@@ -142,10 +126,12 @@ export default function Page() {
                 />
 
                 {/* Floating Location Button */}
-                <button
+                <Button
+                    variant="outline"
+                    size="icon"
                     onClick={handleLocationClick}
                     disabled={loading}
-                    className={`absolute bottom-24 right-4 w-12 h-12 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center z-[1000] transition-all duration-200 ${
+                    className={`absolute bottom-24 right-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-[1000] transition-all duration-200 ${
                         loading
                             ? "cursor-not-allowed opacity-50"
                             : "hover:shadow-xl hover:scale-105 active:scale-95"
@@ -156,7 +142,7 @@ export default function Page() {
                             loading ? "animate-spin" : ""
                         }`}
                     />
-                </button>
+                </Button>
 
                 {/* Add Hotspot Hint */}
                 <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
@@ -198,15 +184,6 @@ export default function Page() {
                     onCancel={handleCancelHotspot}
                     position={newHotspotPosition}
                     language={language}
-                />
-            )}
-
-            {/* Toast Notifications */}
-            {notification && (
-                <Toast
-                    message={notification.message}
-                    type={notification.type}
-                    onClose={() => setNotification(null)}
                 />
             )}
         </div>
