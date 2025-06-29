@@ -14,6 +14,8 @@ import {
     DialogTitle,
     DialogClose,
 } from "@/components/ui/dialog";
+import { uploadHotspotPhoto, createHotspot } from "@/utils/server";
+import { toast } from "sonner";
 
 interface HotspotFormProps {
     onSave: (hotspot: Omit<Hotspot, "id" | "createdAt">) => void;
@@ -33,32 +35,61 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [severity, setSeverity] = useState<Hotspot["severity"]>("medium");
-    const [photo, setPhoto] = useState<string>("");
+    const [photo, setPhoto] = useState<string | undefined>(undefined);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const t = translations[language];
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setPhotoFile(file);
             const reader = new FileReader();
             reader.onload = (e) => {
                 setPhoto(e.target?.result as string);
             };
             reader.readAsDataURL(file);
+        } else {
+            setPhotoFile(null);
+            setPhoto(undefined);
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return;
-
-        onSave({
-            lat: position.lat,
-            lng: position.lng,
-            title: title.trim(),
-            description: description.trim(),
-            severity,
-            photo: photo || undefined,
-        });
+        setIsSubmitting(true);
+        try {
+            let photoUrl: string | null | undefined;
+            if (photoFile) {
+                photoUrl = await uploadHotspotPhoto(photoFile);
+                if (photoUrl == null) {
+                    toast.error("照片上傳失敗");
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+            const hotspotData = {
+                lat: position.lat,
+                lng: position.lng,
+                title: title.trim(),
+                description: description.trim(),
+                severity,
+                photo: photoUrl ?? undefined,
+            };
+            const newHotspot = await createHotspot(hotspotData);
+            if (newHotspot) {
+                onSave(newHotspot);
+                toast.success("熱點新增成功！");
+            } else {
+                toast.error("熱點新增失敗");
+            }
+        } catch (error) {
+            console.error("Error creating hotspot:", error);
+            toast.error("發生錯誤，請稍後再試");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const severityOptions: Array<{
@@ -192,14 +223,15 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                             type="button"
                             variant="outline"
                             onClick={onCancel}
-                            className="flex-1">
+                            className="flex-1"
+                            disabled={isSubmitting}>
                             {t.cancel}
                         </Button>
                         <Button
                             type="submit"
-                            disabled={!title.trim()}
+                            disabled={!title.trim() || isSubmitting}
                             className="flex-1">
-                            {t.save}
+                            {isSubmitting ? "儲存中..." : t.save}
                         </Button>
                     </DialogFooter>
                 </form>
