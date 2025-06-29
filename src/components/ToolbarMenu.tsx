@@ -69,7 +69,6 @@ export const ToolbarMenu: React.FC<ToolbarMenuProps> = ({
                             <RadiusSelector
                                 radius={radius}
                                 onRadiusChange={onRadiusChange}
-                                language={language}
                             />
                         </div>
                     </div>
