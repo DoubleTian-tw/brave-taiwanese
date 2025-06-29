@@ -2,7 +2,7 @@
 import { Loader2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Crosshair, Plus, Settings } from "lucide-react";
+import { Crosshair, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Language, RadiusOption, Hotspot } from "../types";
 import { useGeolocation } from "../hooks/useGeolocation";
@@ -63,11 +63,23 @@ export default function Page() {
 
     useEffect(() => {
         if (location && !loading) {
-            const message =
-                language === "zh" ? "位置已更新" : "Location updated";
-            toast.success(message);
+            toast.success(
+                language === "zh" ? "位置已更新" : "Location updated",
+                { id: "location" }
+            );
         }
     }, [location, loading, language]);
+
+    useEffect(() => {
+        if (hotspots.length > 0) {
+            toast.success(
+                language === "zh"
+                    ? `已添加 ${hotspots.length} 個熱點`
+                    : `${hotspots.length} hotspots added`
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hotspots.length]);
 
     const handleAddHotspot = (position: { lat: number; lng: number }) => {
         setNewHotspotPosition(position);

@@ -118,6 +118,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 }) => {
     const [visibleShelters, setVisibleShelters] = useState<Shelter[]>([]);
     const [visibleHotspots, setVisibleHotspots] = useState<Hotspot[]>([]);
+    const [popupOpen, setPopupOpen] = useState(false);
     const mapRef = useRef<L.Map | null>(null);
 
     const defaultCenter: [number, number] = [25.033, 121.5654]; // Taipei
@@ -195,6 +196,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         setVisibleHotspots(filteredHotspots);
     }, [userLocation, radius, searchQuery, hotspots]);
 
+    const handleMapClick = (position: { lat: number; lng: number }) => {
+        if (popupOpen) {
+            setPopupOpen(false);
+            if (mapRef.current) mapRef.current.closePopup();
+            return;
+        }
+        onAddHotspot(position);
+    };
+
+    const handleMarkerClick = () => {
+        setPopupOpen(true);
+    };
+
     return (
         <LeafletMapContainer
             center={mapCenter}
@@ -207,7 +221,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <MapEventHandler onMapClick={onAddHotspot} />
+            <MapEventHandler onMapClick={handleMapClick} />
             <LocationUpdater userLocation={userLocation} />
 
             {userLocation && <UserLocationMarker location={userLocation} />}
@@ -230,6 +244,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                     key={shelter.id}
                     shelter={shelter}
                     language={language}
+                    onMarkerClick={handleMarkerClick}
                 />
             ))}
 
@@ -238,6 +253,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                     key={hotspot.id}
                     hotspot={hotspot}
                     language={language}
+                    onMarkerClick={handleMarkerClick}
                 />
             ))}
         </LeafletMapContainer>

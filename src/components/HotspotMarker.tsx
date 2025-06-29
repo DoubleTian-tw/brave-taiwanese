@@ -9,6 +9,7 @@ import { Calendar, Camera, MapPin } from "lucide-react";
 interface HotspotMarkerProps {
     hotspot: Hotspot;
     language: Language;
+    onMarkerClick?: () => void;
 }
 
 const getHotspotIcon = (severity: Hotspot["severity"]) => {
@@ -37,6 +38,7 @@ const getHotspotIcon = (severity: Hotspot["severity"]) => {
 export const HotspotMarker: React.FC<HotspotMarkerProps> = ({
     hotspot,
     language,
+    onMarkerClick,
 }) => {
     const t = translations[language];
 
@@ -56,7 +58,10 @@ export const HotspotMarker: React.FC<HotspotMarkerProps> = ({
     return (
         <Marker
             position={[hotspot.lat, hotspot.lng]}
-            icon={getHotspotIcon(hotspot.severity)}>
+            icon={getHotspotIcon(hotspot.severity)}
+            eventHandlers={
+                onMarkerClick ? { click: onMarkerClick } : undefined
+            }>
             <Popup className="hotspot-popup" maxWidth={300}>
                 <div className="p-4 min-w-64">
                     <div className="flex items-start justify-between mb-3">

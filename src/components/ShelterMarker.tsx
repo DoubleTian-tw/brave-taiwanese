@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 interface ShelterMarkerProps {
     shelter: Shelter;
     language: Language;
+    onMarkerClick?: () => void;
 }
 
 const getShelterIcon = (type: Shelter["type"]) => {
@@ -37,6 +38,7 @@ const getShelterIcon = (type: Shelter["type"]) => {
 export const ShelterMarker: React.FC<ShelterMarkerProps> = ({
     shelter,
     language,
+    onMarkerClick,
 }) => {
     const t = translations[language];
 
@@ -48,7 +50,10 @@ export const ShelterMarker: React.FC<ShelterMarkerProps> = ({
     return (
         <Marker
             position={[shelter.lat, shelter.lng]}
-            icon={getShelterIcon(shelter.type)}>
+            icon={getShelterIcon(shelter.type)}
+            eventHandlers={
+                onMarkerClick ? { click: onMarkerClick } : undefined
+            }>
             <Popup className="shelter-popup" maxWidth={300}>
                 <div className="p-4 min-w-64">
                     <div className="flex items-start justify-between mb-3">
