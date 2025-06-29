@@ -6,12 +6,21 @@ import { translations } from "@/utils/translations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogFooter,
+    DialogTitle,
+    DialogClose,
+} from "@/components/ui/dialog";
 
 interface HotspotFormProps {
     onSave: (hotspot: Omit<Hotspot, "id" | "createdAt">) => void;
     onCancel: () => void;
     position: { lat: number; lng: number };
     language: Language;
+    open: boolean;
 }
 
 export const HotspotForm: React.FC<HotspotFormProps> = ({
@@ -19,6 +28,7 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     onCancel,
     position,
     language,
+    open,
 }) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -65,111 +75,119 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     ];
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[1000] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
-                            <AlertTriangle className="h-5 w-5 text-orange-500" />
-                            <span>{t.addHotspot}</span>
-                        </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onCancel}
-                            className="p-2">
-                            <X className="h-5 w-5 text-gray-500" />
-                        </Button>
-                    </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t.hotspotTitle}
-                        </label>
-                        <Input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t.description}
-                        </label>
-                        <Textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            rows={3}
-                            className="resize-none"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                            {t.severity}
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {severityOptions.map(({ value, color }) => (
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                if (!v) onCancel();
+            }}>
+            <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto p-0">
+                <form onSubmit={handleSubmit} className="">
+                    <DialogHeader className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
+                                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                                <span>{t.addHotspot}</span>
+                            </DialogTitle>
+                            <DialogClose asChild>
                                 <Button
-                                    key={value}
+                                    variant="ghost"
+                                    size="icon"
                                     type="button"
-                                    variant={
-                                        severity === value
-                                            ? "default"
-                                            : "outline"
-                                    }
-                                    onClick={() => setSeverity(value)}
-                                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                                        severity === value
-                                            ? `${color} ring-2 ring-blue-500`
-                                            : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
-                                    }`}>
-                                    {t[value]}
+                                    className="p-2">
+                                    <X className="h-5 w-5 text-gray-500" />
                                 </Button>
-                            ))}
+                            </DialogClose>
                         </div>
-                    </div>
+                    </DialogHeader>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {t.uploadPhoto}
-                        </label>
-                        <div className="relative">
-                            <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoChange}
-                                className="hidden"
-                                id="photo-upload"
-                            />
-                            <label
-                                htmlFor="photo-upload"
-                                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors duration-200">
-                                {photo ? (
-                                    <Image
-                                        src={photo}
-                                        alt="Preview"
-                                        layout="fill"
-                                        objectFit="cover"
-                                        className="rounded-lg"
-                                    />
-                                ) : (
-                                    <div className="text-center">
-                                        <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                        <span className="text-sm text-gray-500">
-                                            {t.uploadPhoto}
-                                        </span>
-                                    </div>
-                                )}
+                    <div className="p-6 space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t.hotspotTitle}
                             </label>
+                            <Input
+                                type="text"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t.description}
+                            </label>
+                            <Textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows={3}
+                                className="resize-none"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                {t.severity}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {severityOptions.map(({ value, color }) => (
+                                    <Button
+                                        key={value}
+                                        type="button"
+                                        variant={
+                                            severity === value
+                                                ? "default"
+                                                : "outline"
+                                        }
+                                        onClick={() => setSeverity(value)}
+                                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                                            severity === value
+                                                ? `${color} ring-2 ring-blue-500`
+                                                : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+                                        }`}>
+                                        {t[value]}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t.uploadPhoto}
+                            </label>
+                            <div className="relative">
+                                <Input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePhotoChange}
+                                    className="hidden"
+                                    id="photo-upload"
+                                />
+                                <label
+                                    htmlFor="photo-upload"
+                                    className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors duration-200">
+                                    {photo ? (
+                                        <Image
+                                            src={photo}
+                                            alt="Preview"
+                                            layout="fill"
+                                            objectFit="cover"
+                                            className="rounded-lg"
+                                        />
+                                    ) : (
+                                        <div className="text-center">
+                                            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                            <span className="text-sm text-gray-500">
+                                                {t.uploadPhoto}
+                                            </span>
+                                        </div>
+                                    )}
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex space-x-3 pt-4">
+                    <DialogFooter className="flex flex-row space-x-3 pt-4 px-6 pb-6">
                         <Button
                             type="button"
                             variant="outline"
@@ -183,9 +201,9 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                             className="flex-1">
                             {t.save}
                         </Button>
-                    </div>
+                    </DialogFooter>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 };

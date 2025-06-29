@@ -11,6 +11,12 @@ import { SearchBar } from "../components/SearchBar";
 import { HotspotForm } from "@/components/HotspotForm";
 import { ToolbarMenu } from "@/components/ToolbarMenu";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 const MapContainer = dynamic(
     () => import("../components/MapContainer").then((mod) => mod.MapContainer),
@@ -98,6 +104,18 @@ export default function Page() {
         <div className="h-screen flex flex-col bg-gray-100">
             {/* Full Screen Map Container */}
             <div className="relative flex-1">
+                {/* shadcn Dialog for add-hotspot hint */}
+                <Dialog defaultOpen>
+                    <DialogContent className="max-w-md mx-auto">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {language === "zh"
+                                    ? "點擊地圖任意位置添加熱點標記"
+                                    : "Tap anywhere on the map to add a hotspot"}
+                            </DialogTitle>
+                        </DialogHeader>
+                    </DialogContent>
+                </Dialog>
                 <MapContainer
                     userLocation={location}
                     radius={radius}
@@ -153,33 +171,6 @@ export default function Page() {
                         }`}
                     />
                 </Button>
-
-                {/* Add Hotspot Hint */}
-                <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 shadow-sm">
-                        <div className="flex items-center space-x-2">
-                            <Plus className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                            <span className="text-sm text-blue-700 font-medium">
-                                {language === "zh"
-                                    ? "點擊地圖任意位置添加熱點標記"
-                                    : "Tap anywhere on the map to add a hotspot"}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Hotspot Count Display */}
-                {hotspots.length > 0 && (
-                    <div className="absolute top-20 left-4 z-[1000] pointer-events-none">
-                        <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 shadow-sm">
-                            <span className="text-sm text-green-700 font-medium">
-                                {language === "zh"
-                                    ? `已添加 ${hotspots.length} 個熱點`
-                                    : `${hotspots.length} hotspots added`}
-                            </span>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Fixed Bottom Search Bar */}
@@ -194,6 +185,7 @@ export default function Page() {
                     onCancel={handleCancelHotspot}
                     position={newHotspotPosition}
                     language={language}
+                    open={showHotspotForm}
                 />
             )}
         </div>
