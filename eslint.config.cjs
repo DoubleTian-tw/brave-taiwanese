@@ -31,6 +31,7 @@ module.exports = [
             ...nextPlugin.configs["core-web-vitals"].rules,
             ...hooksPlugin.configs.recommended.rules,
             "@next/next/no-html-link-for-pages": "off",
+            "@typescript-eslint/no-unused-vars": "off",
         },
         settings: {
             react: {
