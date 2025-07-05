@@ -1,27 +1,26 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import { marker as createMarker, icon } from "leaflet";
+import "leaflet/dist/leaflet.css";
+import React, { useEffect, useRef, useState } from "react";
 import {
+    Circle,
     MapContainer as LeafletMapContainer,
     TileLayer,
-    Circle,
-    useMapEvents,
     useMap,
-    Marker,
+    useMapEvents,
 } from "react-leaflet";
-import { icon, marker as createMarker } from "leaflet";
-import "leaflet/dist/leaflet.css";
-import {
-    Shelter,
-    Hotspot,
-    UserLocation,
-    RadiusOption,
-    Language,
-    SeverityLevel,
-    MapBounds,
-} from "../types";
-import { ShelterMarker } from "./ShelterMarker";
-import { HotspotMarker } from "./HotspotMarker";
 import { mockShelters } from "../data/mockShelters";
+import {
+    Hotspot,
+    Language,
+    MapBounds,
+    RadiusOption,
+    SeverityLevel,
+    Shelter,
+    UserLocation,
+} from "../types";
+import { HotspotMarker } from "./HotspotMarker";
+import { ShelterMarker } from "./ShelterMarker";
 
 interface MapContainerProps {
     userLocation: UserLocation | null;

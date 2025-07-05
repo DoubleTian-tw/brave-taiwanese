@@ -64,7 +64,7 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
         SeverityLevel[]
     >([]);
     const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+    const [_isDeleting, setIsDeleting] = useState(false);
 
     const { location, loading, error, getCurrentLocation } = useGeolocation();
     const t = translations[language];
