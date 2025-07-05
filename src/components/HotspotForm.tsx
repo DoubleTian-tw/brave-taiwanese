@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { X, Camera, AlertTriangle } from "lucide-react";
 import { Hotspot, Language } from "@/types";
@@ -23,6 +23,7 @@ interface HotspotFormProps {
     position: { lat: number; lng: number };
     language: Language;
     open: boolean;
+    editingHotspot?: Hotspot | null;
 }
 
 export const HotspotForm: React.FC<HotspotFormProps> = ({
@@ -31,6 +32,7 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     position,
     language,
     open,
+    editingHotspot,
 }) => {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -39,6 +41,23 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const t = translations[language];
+
+    // 當編輯熱點時，初始化表單數據
+    useEffect(() => {
+        if (editingHotspot) {
+            setTitle(editingHotspot.title);
+            setDescription(editingHotspot.description);
+            setSeverity(editingHotspot.severity);
+            setPhoto(editingHotspot.photo);
+        } else {
+            // 重置表單
+            setTitle("");
+            setDescription("");
+            setSeverity("medium");
+            setPhoto(undefined);
+        }
+        setPhotoFile(null);
+    }, [editingHotspot, open]);
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -51,7 +70,7 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
             reader.readAsDataURL(file);
         } else {
             setPhotoFile(null);
-            setPhoto(undefined);
+            setPhoto(editingHotspot?.photo);
         }
     };
 
@@ -59,37 +78,65 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
         e.preventDefault();
         if (!title.trim()) return;
         setIsSubmitting(true);
+
         try {
-            let photoUrl: string | null | undefined;
+            let photoUrl: string | undefined = photo;
+
+            // 如果有新上傳的照片，先上傳
             if (photoFile) {
-                photoUrl = await uploadHotspotPhoto(photoFile);
-                if (photoUrl == null) {
+                const uploadedUrl = await uploadHotspotPhoto(photoFile);
+                if (uploadedUrl == null) {
                     toast.error("照片上傳失敗");
                     setIsSubmitting(false);
                     return;
                 }
+                photoUrl = uploadedUrl;
             }
+
             const hotspotData = {
                 lat: position.lat,
                 lng: position.lng,
                 title: title.trim(),
                 description: description.trim(),
                 severity,
-                photo: photoUrl ?? undefined,
+                photo: photoUrl,
             };
-            const newHotspot = await createHotspot(hotspotData);
-            if (newHotspot) {
-                onSave(newHotspot);
-                toast.success("熱點新增成功！");
+
+            if (editingHotspot) {
+                // 編輯模式：直接調用 onSave，由父元件處理更新邏輯
+                onSave(hotspotData);
             } else {
-                toast.error("熱點新增失敗");
+                // 新增模式：調用 createHotspot API
+                const newHotspot = await createHotspot(hotspotData);
+                if (newHotspot) {
+                    onSave(newHotspot);
+                    toast.success(
+                        language === "zh"
+                            ? "熱點新增成功！"
+                            : "Hotspot created!"
+                    );
+                } else {
+                    toast.error(
+                        language === "zh"
+                            ? "熱點新增失敗"
+                            : "Failed to create hotspot"
+                    );
+                    setIsSubmitting(false);
+                    return;
+                }
             }
         } catch (error) {
-            console.error("Error creating hotspot:", error);
-            toast.error("發生錯誤，請稍後再試");
-        } finally {
+            console.error("Error saving hotspot:", error);
+            toast.error(
+                language === "zh"
+                    ? "發生錯誤，請稍後再試"
+                    : "An error occurred, please try again"
+            );
             setIsSubmitting(false);
+            return;
         }
+
+        setIsSubmitting(false);
     };
 
     const severityOptions: Array<{
@@ -111,13 +158,17 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
             onOpenChange={(v) => {
                 if (!v) onCancel();
             }}>
-            <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto p-0">
+            <DialogContent className="max-w-md w-full max-h-[90vh] overflow-y-auto p-0 rounded-lg">
                 <form onSubmit={handleSubmit} className="">
                     <DialogHeader className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl z-10">
                         <div className="flex items-center justify-between">
                             <DialogTitle className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
                                 <AlertTriangle className="h-5 w-5 text-orange-500" />
-                                <span>{t.addHotspot}</span>
+                                <span>
+                                    {editingHotspot
+                                        ? t.editHotspot
+                                        : t.addHotspot}
+                                </span>
                             </DialogTitle>
                             <DialogClose asChild>
                                 <Button
@@ -231,7 +282,11 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                             type="submit"
                             disabled={!title.trim() || isSubmitting}
                             className="flex-1">
-                            {isSubmitting ? "儲存中..." : t.save}
+                            {isSubmitting
+                                ? editingHotspot
+                                    ? t.updating
+                                    : "儲存中..."
+                                : t.save}
                         </Button>
                     </DialogFooter>
                 </form>

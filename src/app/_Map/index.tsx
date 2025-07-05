@@ -1,22 +1,29 @@
 "use client";
-import { Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
-import React, { useState, useEffect } from "react";
-import { Crosshair, Settings } from "lucide-react";
-import { toast } from "sonner";
-import { Language, RadiusOption, Hotspot } from "@/types";
-import { useGeolocation } from "@/hooks/useGeolocation";
-import { translations } from "@/utils/translations";
-import { SearchBar } from "@/components/SearchBar";
 import { HotspotForm } from "@/components/HotspotForm";
+import { SearchBar } from "@/components/SearchBar";
 import { ToolbarMenu } from "@/components/ToolbarMenu";
 import { Button } from "@/components/ui/button";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { supabaseClient } from "@/lib/supabase";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+    Hotspot,
+    Language,
+    MapBounds,
+    RadiusOption,
+    SeverityLevel,
+} from "@/types";
+import {
+    deleteHotspot as deleteHotspotApi,
+    getHotspots,
+    getHotspotsByBounds,
+    getHotspotsByLocation,
+    updateHotspot,
+} from "@/utils/server";
+import { translations } from "@/utils/translations";
+import { Crosshair, Loader2, Settings } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 const MapContainer = dynamic(
     () => import("@/components/MapContainer").then((mod) => mod.MapContainer),
@@ -48,9 +55,148 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
         lat: number;
         lng: number;
     } | null>(null);
+    const [editingHotspot, setEditingHotspot] = useState<Hotspot | null>(null);
+
+    // 新增的狀態
+    const [enableOutOfRangeDetection, setEnableOutOfRangeDetection] =
+        useState(false);
+    const [selectedSeverities, setSelectedSeverities] = useState<
+        SeverityLevel[]
+    >([]);
+    const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const { location, loading, error, getCurrentLocation } = useGeolocation();
     const t = translations[language];
+
+    // 使用 useMemo 來穩定 mapBounds 的參考，避免無限循環
+    const stableMapBounds = useMemo(() => {
+        return mapBounds
+            ? {
+                  north: Number(mapBounds.north.toFixed(6)),
+                  south: Number(mapBounds.south.toFixed(6)),
+                  east: Number(mapBounds.east.toFixed(6)),
+                  west: Number(mapBounds.west.toFixed(6)),
+              }
+            : null;
+    }, [mapBounds?.north, mapBounds?.south, mapBounds?.east, mapBounds?.west]);
+
+    // Supabase 即時監聽
+    useEffect(() => {
+        const channel = supabaseClient
+            .channel("hotspots-changes")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "hotspots",
+                },
+                (payload) => {
+                    console.log("Hotspot change:", payload);
+
+                    if (payload.eventType === "INSERT") {
+                        const newHotspot: Hotspot = {
+                            id: payload.new.id,
+                            lat: payload.new.lat,
+                            lng: payload.new.lng,
+                            title: payload.new.title,
+                            description: payload.new.description,
+                            severity: payload.new.severity,
+                            photo: payload.new.photo_url || undefined,
+                            createdAt: new Date(payload.new.created_at),
+                        };
+                        setHotspots((prev) => [...prev, newHotspot]);
+                        toast.success(
+                            language === "zh"
+                                ? `新增熱點: ${newHotspot.title}`
+                                : `New hotspot: ${newHotspot.title}`
+                        );
+                    } else if (payload.eventType === "UPDATE") {
+                        const updatedHotspot: Hotspot = {
+                            id: payload.new.id,
+                            lat: payload.new.lat,
+                            lng: payload.new.lng,
+                            title: payload.new.title,
+                            description: payload.new.description,
+                            severity: payload.new.severity,
+                            photo: payload.new.photo_url || undefined,
+                            createdAt: new Date(payload.new.created_at),
+                        };
+                        setHotspots((prev) =>
+                            prev.map((h) =>
+                                h.id === updatedHotspot.id ? updatedHotspot : h
+                            )
+                        );
+                        toast.success(
+                            language === "zh"
+                                ? `更新熱點: ${updatedHotspot.title}`
+                                : `Updated hotspot: ${updatedHotspot.title}`
+                        );
+                    } else if (payload.eventType === "DELETE") {
+                        setHotspots((prev) =>
+                            prev.filter((h) => h.id !== payload.old.id)
+                        );
+                        toast.success(
+                            language === "zh" ? "熱點已刪除" : "Hotspot deleted"
+                        );
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabaseClient.removeChannel(channel);
+        };
+    }, [language]);
+
+    // 根據設定載入熱點
+    useEffect(() => {
+        const loadHotspots = async () => {
+            try {
+                let newHotspots: Hotspot[] = [];
+
+                if (enableOutOfRangeDetection && stableMapBounds) {
+                    // 使用地圖邊界載入
+                    newHotspots = await getHotspotsByBounds(
+                        stableMapBounds.north,
+                        stableMapBounds.south,
+                        stableMapBounds.east,
+                        stableMapBounds.west
+                    );
+                } else if (location) {
+                    // 使用使用者位置和半徑載入
+                    newHotspots = await getHotspotsByLocation(
+                        location.lat,
+                        location.lng,
+                        radius
+                    );
+                } else {
+                    // 載入所有熱點
+                    newHotspots = await getHotspots();
+                }
+
+                setHotspots(newHotspots);
+            } catch (error) {
+                console.error("Error loading hotspots:", error);
+                toast.error(
+                    language === "zh"
+                        ? "載入熱點失敗"
+                        : "Failed to load hotspots"
+                );
+            }
+        };
+
+        // 添加防抖延遲，避免地圖邊界變化過於頻繁時重複載入
+        const timeoutId = setTimeout(loadHotspots, 300);
+        return () => clearTimeout(timeoutId);
+    }, [
+        location,
+        radius,
+        enableOutOfRangeDetection,
+        stableMapBounds,
+        language,
+    ]);
 
     useEffect(() => {
         if (error) {
@@ -67,38 +213,85 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
         }
     }, [location, loading, language]);
 
-    useEffect(() => {
-        if (hotspots.length > 0) {
-            toast.success(
-                language === "zh"
-                    ? `已添加 ${hotspots.length} 個熱點`
-                    : `${hotspots.length} hotspots added`
-            );
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hotspots.length]);
-
     const handleAddHotspot = (position: { lat: number; lng: number }) => {
         setNewHotspotPosition(position);
+        setEditingHotspot(null);
         setShowHotspotForm(true);
     };
 
-    const handleSaveHotspot = (
+    const handleEditHotspot = (hotspot: Hotspot) => {
+        setEditingHotspot(hotspot);
+        setNewHotspotPosition({ lat: hotspot.lat, lng: hotspot.lng });
+        setShowHotspotForm(true);
+    };
+
+    const handleSaveHotspot = async (
         hotspotData: Omit<Hotspot, "id" | "createdAt">
     ) => {
-        const newHotspot: Hotspot = {
-            ...hotspotData,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-        };
-        setHotspots((prev) => [...prev, newHotspot]);
-        setShowHotspotForm(false);
-        setNewHotspotPosition(null);
+        try {
+            if (editingHotspot) {
+                // 更新現有熱點
+                const updatedHotspot = await updateHotspot(editingHotspot.id, {
+                    title: hotspotData.title,
+                    description: hotspotData.description,
+                    severity: hotspotData.severity,
+                    photo: hotspotData.photo,
+                });
+
+                if (updatedHotspot) {
+                    setHotspots((prev) =>
+                        prev.map((h) =>
+                            h.id === updatedHotspot.id ? updatedHotspot : h
+                        )
+                    );
+                    toast.success(
+                        language === "zh" ? "熱點已更新" : "Hotspot updated"
+                    );
+                } else {
+                    throw new Error("Failed to update hotspot");
+                }
+            } else {
+                // 新增熱點的邏輯保持不變，由 HotspotForm 處理
+                // 這裡不需要手動添加，因為 Supabase 即時監聽會自動處理
+            }
+        } catch (error) {
+            console.error("Error saving hotspot:", error);
+            toast.error(
+                language === "zh" ? "儲存熱點失敗" : "Failed to save hotspot"
+            );
+        } finally {
+            setShowHotspotForm(false);
+            setNewHotspotPosition(null);
+            setEditingHotspot(null);
+        }
+    };
+
+    const handleDeleteHotspot = async (id: string) => {
+        setIsDeleting(true);
+        try {
+            const success = await deleteHotspotApi(id);
+            if (success) {
+                // 不需要手動更新狀態，Supabase 即時監聽會處理
+                toast.success(
+                    language === "zh" ? "熱點已刪除" : "Hotspot deleted"
+                );
+            } else {
+                throw new Error("Failed to delete hotspot");
+            }
+        } catch (error) {
+            console.error("Error deleting hotspot:", error);
+            toast.error(
+                language === "zh" ? "刪除熱點失敗" : "Failed to delete hotspot"
+            );
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const handleCancelHotspot = () => {
         setShowHotspotForm(false);
         setNewHotspotPosition(null);
+        setEditingHotspot(null);
     };
 
     const handleLocationClick = () => {
@@ -109,29 +302,31 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
         setShowToolbar(!showToolbar);
     };
 
+    const handleMapBoundsChange = (bounds: MapBounds) => {
+        setMapBounds(bounds);
+    };
+
     return (
         <div className="h-screen flex flex-col bg-gray-100">
             {/* Full Screen Map Container */}
             <div className="relative flex-1">
-                {/* shadcn Dialog for add-hotspot hint */}
-                <Dialog defaultOpen>
-                    <DialogContent className="max-w-md mx-auto">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {language === "zh"
-                                    ? "點擊地圖任意位置添加熱點標記"
-                                    : "Tap anywhere on the map to add a hotspot"}
-                            </DialogTitle>
-                        </DialogHeader>
-                    </DialogContent>
-                </Dialog>
+                {/* 搜尋列 */}
+                <div className="absolute top-4 left-4 right-4 z-[1000]">
+                    <SearchBar onSearch={setSearchQuery} language={language} />
+                </div>
+
                 <MapContainer
                     userLocation={location}
                     radius={radius}
                     searchQuery={searchQuery}
                     language={language}
                     hotspots={hotspots}
+                    enableOutOfRangeDetection={enableOutOfRangeDetection}
+                    selectedSeverities={selectedSeverities}
                     onAddHotspot={handleAddHotspot}
+                    onEditHotspot={handleEditHotspot}
+                    onDeleteHotspot={handleDeleteHotspot}
+                    onMapBoundsChange={handleMapBoundsChange}
                 />
 
                 {/* Floating Toolbar Button */}
@@ -160,6 +355,10 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
                     onLanguageChange={setLanguage}
                     radius={radius}
                     onRadiusChange={setRadius}
+                    enableOutOfRangeDetection={enableOutOfRangeDetection}
+                    onToggleOutOfRangeDetection={setEnableOutOfRangeDetection}
+                    selectedSeverities={selectedSeverities}
+                    onSeverityChange={setSelectedSeverities}
                 />
 
                 {/* Floating Location Button */}
@@ -168,35 +367,27 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
                     size="icon"
                     onClick={handleLocationClick}
                     disabled={loading}
-                    className={`absolute bottom-24 right-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-[1000] transition-all duration-200 ${
-                        loading
-                            ? "cursor-not-allowed opacity-50"
-                            : "hover:shadow-xl hover:scale-105 active:scale-95"
-                    }`}
+                    className="absolute bottom-20 right-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-[1000] hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
                     title={loading ? t.locationLoading : t.myLocation}>
-                    <Crosshair
-                        className={`h-6 w-6 text-blue-600 ${
-                            loading ? "animate-spin" : ""
-                        }`}
-                    />
+                    {loading ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    ) : (
+                        <Crosshair className="h-6 w-6 text-gray-600" />
+                    )}
                 </Button>
-            </div>
 
-            {/* Fixed Bottom Search Bar */}
-            <div className="fixed bottom-12 left-1/2 transform -translate-x-1/2 w-1/3 min-w-80 z-[1000]">
-                <SearchBar onSearch={setSearchQuery} language={language} />
+                {/* Hotspot Form Dialog */}
+                {showHotspotForm && newHotspotPosition && (
+                    <HotspotForm
+                        open={showHotspotForm}
+                        position={newHotspotPosition}
+                        language={language}
+                        onSave={handleSaveHotspot}
+                        onCancel={handleCancelHotspot}
+                        editingHotspot={editingHotspot}
+                    />
+                )}
             </div>
-
-            {/* Hotspot Form Modal */}
-            {showHotspotForm && newHotspotPosition && (
-                <HotspotForm
-                    onSave={handleSaveHotspot}
-                    onCancel={handleCancelHotspot}
-                    position={newHotspotPosition}
-                    language={language}
-                    open={showHotspotForm}
-                />
-            )}
         </div>
     );
 };
