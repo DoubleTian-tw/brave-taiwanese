@@ -6,6 +6,7 @@ import {
     Circle,
     useMapEvents,
     useMap,
+    Marker,
 } from "react-leaflet";
 import { icon, marker as createMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -15,6 +16,8 @@ import {
     UserLocation,
     RadiusOption,
     Language,
+    SeverityLevel,
+    MapBounds,
 } from "../types";
 import { ShelterMarker } from "./ShelterMarker";
 import { HotspotMarker } from "./HotspotMarker";
@@ -26,15 +29,43 @@ interface MapContainerProps {
     searchQuery: string;
     language: Language;
     hotspots: Hotspot[];
+    enableOutOfRangeDetection: boolean;
+    selectedSeverities: SeverityLevel[];
     onAddHotspot: (position: { lat: number; lng: number }) => void;
+    onEditHotspot?: (hotspot: Hotspot) => void;
+    onDeleteHotspot?: (id: string) => void;
+    onMapBoundsChange?: (bounds: MapBounds) => void;
 }
 
 const MapEventHandler: React.FC<{
     onMapClick: (position: { lat: number; lng: number }) => void;
-}> = ({ onMapClick }) => {
-    useMapEvents({
+    onBoundsChange?: (bounds: MapBounds) => void;
+}> = ({ onMapClick, onBoundsChange }) => {
+    const map = useMapEvents({
         click: (e) => {
             onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
+        },
+        moveend: () => {
+            if (onBoundsChange) {
+                const bounds = map.getBounds();
+                onBoundsChange({
+                    north: bounds.getNorth(),
+                    south: bounds.getSouth(),
+                    east: bounds.getEast(),
+                    west: bounds.getWest(),
+                });
+            }
+        },
+        zoomend: () => {
+            if (onBoundsChange) {
+                const bounds = map.getBounds();
+                onBoundsChange({
+                    north: bounds.getNorth(),
+                    south: bounds.getSouth(),
+                    east: bounds.getEast(),
+                    west: bounds.getWest(),
+                });
+            }
         },
     });
     return null;
@@ -47,13 +78,8 @@ const LocationUpdater: React.FC<{ userLocation: UserLocation | null }> = ({
 
     useEffect(() => {
         const handleLocationUpdate = (event: CustomEvent) => {
-            const location = event.detail;
-            if (location && map) {
-                map.setView([location.lat, location.lng], 15, {
-                    animate: true,
-                    duration: 1.0,
-                });
-            }
+            const { lat, lng } = event.detail;
+            map.setView([lat, lng], map.getZoom());
         };
 
         window.addEventListener(
@@ -68,15 +94,6 @@ const LocationUpdater: React.FC<{ userLocation: UserLocation | null }> = ({
             );
         };
     }, [map]);
-
-    useEffect(() => {
-        if (userLocation && map) {
-            map.setView([userLocation.lat, userLocation.lng], map.getZoom(), {
-                animate: true,
-                duration: 0.5,
-            });
-        }
-    }, [userLocation, map]);
 
     return null;
 };
@@ -114,11 +131,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     searchQuery,
     language,
     hotspots,
+    enableOutOfRangeDetection,
+    selectedSeverities,
     onAddHotspot,
+    onEditHotspot,
+    onDeleteHotspot,
+    onMapBoundsChange,
 }) => {
     const [visibleShelters, setVisibleShelters] = useState<Shelter[]>([]);
     const [visibleHotspots, setVisibleHotspots] = useState<Hotspot[]>([]);
     const [popupOpen, setPopupOpen] = useState(false);
+    const [localMapBounds, setLocalMapBounds] = useState<MapBounds | null>(
+        null
+    );
     const mapRef = useRef<L.Map | null>(null);
 
     const defaultCenter: [number, number] = [25.033, 121.5654]; // Taipei
@@ -144,6 +169,34 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     };
+
+    const isInMapBounds = (lat: number, lng: number, bounds: MapBounds) => {
+        return (
+            lat >= bounds.south &&
+            lat <= bounds.north &&
+            lng >= bounds.west &&
+            lng <= bounds.east
+        );
+    };
+
+    const handleBoundsChange = (bounds: MapBounds) => {
+        // 僅當 bounds 真正有變化時才 setState
+        if (
+            !localMapBounds ||
+            localMapBounds.north !== bounds.north ||
+            localMapBounds.south !== bounds.south ||
+            localMapBounds.east !== bounds.east ||
+            localMapBounds.west !== bounds.west
+        ) {
+            setLocalMapBounds(bounds);
+            onMapBoundsChange?.(bounds);
+        }
+    };
+
+    // 避免 mapBounds 對象在每次渲染時都不同導致的無限循環
+    const mapBoundsString = localMapBounds
+        ? `${localMapBounds.north},${localMapBounds.south},${localMapBounds.east},${localMapBounds.west}`
+        : "";
 
     useEffect(() => {
         if (!userLocation) {
@@ -173,28 +226,58 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             return distance <= radiusInKm && matchesSearch;
         });
 
-        const filteredHotspots = hotspots.filter((hotspot) => {
-            const distance = calculateDistance(
-                userLocation.lat,
-                userLocation.lng,
-                hotspot.lat,
-                hotspot.lng
-            );
-            const matchesSearch = searchQuery
-                ? hotspot.title
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase()) ||
-                  hotspot.description
-                      .toLowerCase()
-                      .includes(searchQuery.toLowerCase())
-                : true;
+        let filteredHotspots = hotspots;
 
-            return distance <= radiusInKm && matchesSearch;
-        });
+        // 應用嚴重等級篩選
+        if (selectedSeverities.length > 0) {
+            filteredHotspots = filteredHotspots.filter((hotspot) =>
+                selectedSeverities.includes(hotspot.severity)
+            );
+        }
+
+        // 根據範圍外偵測設定篩選熱點
+        if (enableOutOfRangeDetection && localMapBounds) {
+            // 啟用範圍外偵測：使用地圖邊界篩選
+            filteredHotspots = filteredHotspots.filter((hotspot) =>
+                isInMapBounds(hotspot.lat, hotspot.lng, localMapBounds)
+            );
+        } else {
+            // 預設模式：使用使用者位置和半徑篩選
+            filteredHotspots = filteredHotspots.filter((hotspot) => {
+                const distance = calculateDistance(
+                    userLocation.lat,
+                    userLocation.lng,
+                    hotspot.lat,
+                    hotspot.lng
+                );
+                return distance <= radiusInKm;
+            });
+        }
+
+        // 應用搜尋篩選到熱點
+        if (searchQuery) {
+            filteredHotspots = filteredHotspots.filter(
+                (hotspot) =>
+                    hotspot.title
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase()) ||
+                    hotspot.description
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())
+            );
+        }
 
         setVisibleShelters(filteredShelters);
         setVisibleHotspots(filteredHotspots);
-    }, [userLocation, radius, searchQuery, hotspots]);
+    }, [
+        userLocation,
+        radius,
+        searchQuery,
+        hotspots,
+        enableOutOfRangeDetection,
+        selectedSeverities,
+        mapBoundsString,
+    ]);
 
     const handleMapClick = (position: { lat: number; lng: number }) => {
         if (popupOpen) {
@@ -221,12 +304,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <MapEventHandler onMapClick={handleMapClick} />
+            <MapEventHandler
+                onMapClick={handleMapClick}
+                onBoundsChange={handleBoundsChange}
+            />
             <LocationUpdater userLocation={userLocation} />
 
             {userLocation && <UserLocationMarker location={userLocation} />}
 
-            {userLocation && (
+            {userLocation && !enableOutOfRangeDetection && (
                 <Circle
                     center={[userLocation.lat, userLocation.lng]}
                     radius={radius * 1000}
@@ -254,6 +340,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                     hotspot={hotspot}
                     language={language}
                     onMarkerClick={handleMarkerClick}
+                    onEditHotspot={onEditHotspot}
+                    onDeleteHotspot={onDeleteHotspot}
                 />
             ))}
         </LeafletMapContainer>
