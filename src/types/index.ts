@@ -21,9 +21,25 @@ export interface Hotspot {
 }
 
 export type Language = "zh" | "en";
-export type RadiusOption = 1 | 3 | 5;
+export type RadiusOption = 0.5 | 1 | 2 | 3 | 5;
+export type SeverityLevel = "low" | "medium" | "high" | "critical";
 
 export interface UserLocation {
     lat: number;
     lng: number;
+}
+
+// 新增設定選項介面
+export interface MapSettings {
+    radius: RadiusOption;
+    enableOutOfRangeDetection: boolean;
+    severityFilters: SeverityLevel[];
+}
+
+// 地圖邊界介面
+export interface MapBounds {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
 }
