@@ -1,9 +1,10 @@
 import React from "react";
 import { X } from "lucide-react";
-import { Language, RadiusOption } from "../types";
+import { Language, RadiusOption, SeverityLevel } from "../types";
 import { translations } from "../utils/translations";
 import { LanguageSelector } from "./LanguageSelector";
 import { RadiusSelector } from "./RadiusSelector";
+import { SeverityFilter } from "./SeverityFilter";
 import { Button } from "@/components/ui/button";
 
 interface ToolbarMenuProps {
@@ -13,6 +14,10 @@ interface ToolbarMenuProps {
     onLanguageChange: (language: Language) => void;
     radius: RadiusOption;
     onRadiusChange: (radius: RadiusOption) => void;
+    enableOutOfRangeDetection: boolean;
+    onToggleOutOfRangeDetection: (enabled: boolean) => void;
+    selectedSeverities: SeverityLevel[];
+    onSeverityChange: (severities: SeverityLevel[]) => void;
 }
 
 export const ToolbarMenu: React.FC<ToolbarMenuProps> = ({
@@ -22,6 +27,10 @@ export const ToolbarMenu: React.FC<ToolbarMenuProps> = ({
     onLanguageChange,
     radius,
     onRadiusChange,
+    enableOutOfRangeDetection,
+    onToggleOutOfRangeDetection,
+    selectedSeverities,
+    onSeverityChange,
 }) => {
     const t = translations[language];
 
@@ -69,6 +78,37 @@ export const ToolbarMenu: React.FC<ToolbarMenuProps> = ({
                             <RadiusSelector
                                 radius={radius}
                                 onRadiusChange={onRadiusChange}
+                            />
+                        </div>
+
+                        {/* 範圍外偵測開關 */}
+                        <div>
+                            <label className="flex items-center space-x-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={enableOutOfRangeDetection}
+                                    onChange={(e) =>
+                                        onToggleOutOfRangeDetection(
+                                            e.target.checked
+                                        )
+                                    }
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                    {t.enableOutOfRangeDetection}
+                                </span>
+                            </label>
+                        </div>
+
+                        {/* 嚴重等級篩選 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {t.severityFilter}
+                            </label>
+                            <SeverityFilter
+                                selectedSeverities={selectedSeverities}
+                                onSeverityChange={onSeverityChange}
+                                language={language}
                             />
                         </div>
                     </div>
