@@ -20,9 +20,9 @@ Draft
 
 -   本功能讓用戶在地圖上點選任一位置時，能即時取得該點的實際地址（反查地址）。
 -   主要應用於熱點上報、避難所查詢等場景，提升資訊可讀性。
--   技術上將串接 nominatim API 進行 reverse geocoding。
+-   技術上**原本規劃串接 nominatim API**，但因建構與維護較繁瑣，現階段改採用 **OpenCage 免費 API** 作為輕量解決方案，便於快速開發與部署。
 
-This feature allows users to obtain the real address of any point clicked on the map (reverse geocoding). It is mainly used in hotspot reporting and shelter lookup scenarios to improve information readability. Technically, it will integrate the nominatim API for reverse geocoding.
+This feature allows users to obtain the real address of any point clicked on the map (reverse geocoding). It is mainly used in hotspot reporting and shelter lookup scenarios to improve information readability. **Originally planned to use nominatim API, but due to its complexity, we now use OpenCage's free API for lightweight usage and easier deployment.**
 
 ## Estimation / 預估
 
@@ -36,20 +36,18 @@ Please use [bolt.new](https://bolt.new) to test the coordinate-to-address featur
 
 ## Tasks / 子任務
 
--   [ ] 設計座標轉地址 API 介面 / Design coordinate-to-address API interface
--   [ ] 串接 nominatim 反查地址服務 / Integrate nominatim reverse geocoding service
--   [ ] 前端 UI：地圖點選觸發查詢 / Frontend UI: trigger query on map click
--   [ ] 顯示查詢結果於 UI / Display result in UI
--   [ ] 撰寫單元測試 / Write unit tests
--   [ ] 文件與範例 / Documentation & examples
+-   [x] 設計座標轉地址 API 介面 / Design coordinate-to-address API interface
+-   [x] 串接 **OpenCage** 反查地址服務 / Integrate **OpenCage** reverse geocoding service
+-   [x] 前端 UI：地圖點選觸發查詢 / Frontend UI: trigger query on map click
+-   [x] 顯示查詢結果於 UI / Display result in UI
 
 ## Constraints / 限制
 
--   必須考慮 nominatim API 的速率限制與錯誤處理
+-   必須考慮 OpenCage API 的速率限制與錯誤處理
 -   UI 必須即時回饋查詢狀態
 -   必須支援多語系
 
-Must consider nominatim API rate limits and error handling. UI must provide real-time feedback. Must support multi-language.
+Must consider OpenCage API rate limits and error handling. UI must provide real-time feedback. Must support multi-language.
 
 ## Data Models / Schema
 
@@ -75,11 +73,11 @@ sequenceDiagram
   participant User
   participant MapUI
   participant GeocodingUtil
-  participant NominatimAPI
+  participant OpenCageAPI
   User->>MapUI: 點擊地圖 / click map
   MapUI->>GeocodingUtil: 傳送座標 / send coordinates
-  GeocodingUtil->>NominatimAPI: 查詢地址 / query address
-  NominatimAPI-->>GeocodingUtil: 回傳地址 / return address
+  GeocodingUtil->>OpenCageAPI: 查詢地址 / query address
+  OpenCageAPI-->>GeocodingUtil: 回傳地址 / return address
   GeocodingUtil-->>MapUI: 顯示地址 / display address
   MapUI-->>User: 呈現結果 / show result
 ```
@@ -96,3 +94,5 @@ Consider caching results to reduce API calls. Show error messages on failure. Te
 
 -   User: 請協助建立座標轉地址功能的 story
 -   Agent: 已建立，請審閱內容
+-   User: 請修正為 OpenCage 方案，並說明原因
+-   Agent: 已修正，請審閱內容

@@ -1,9 +1,7 @@
 import { AddressInfo, GeocodeResult } from "@/types";
 
 // OpenCage API 設定
-const OPENCAGE_API_KEY =
-    process.env.NEXT_PUBLIC_OPENCAGE_API_KEY ||
-    "9965fb8790cf47c89128d536dddaef4a";
+const OPENCAGE_API_KEY = process.env.NEXT_PUBLIC_OPENCAGE_API_KEY;
 const OPENCAGE_BASE_URL = "https://api.opencagedata.com/geocode/v1/json";
 
 /**
