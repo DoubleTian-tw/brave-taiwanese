@@ -17,6 +17,7 @@ export interface Hotspot {
     description: string;
     severity: "low" | "medium" | "high" | "critical";
     photo?: string;
+    address?: string;
     createdAt: Date;
 }
 
@@ -42,4 +43,31 @@ export interface MapBounds {
     south: number;
     east: number;
     west: number;
+}
+
+// 地址相關介面
+export interface AddressComponents {
+    country?: string;
+    state?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    road?: string;
+    house_number?: string;
+    postcode?: string;
+    county?: string;
+    suburb?: string;
+    neighbourhood?: string;
+}
+
+export interface AddressInfo {
+    formatted: string;
+    components: AddressComponents;
+    confidence: number;
+}
+
+export interface GeocodeResult {
+    success: boolean;
+    address?: AddressInfo;
+    error?: string;
 }
