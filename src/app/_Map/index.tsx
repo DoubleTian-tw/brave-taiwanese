@@ -18,6 +18,7 @@ import {
     getHotspotsByBounds,
     getHotspotsByLocation,
     updateHotspot,
+    createHotspot,
 } from "@/utils/server";
 import { translations } from "@/utils/translations";
 import { Crosshair, Loader2, Settings } from "lucide-react";
@@ -230,29 +231,59 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
     ) => {
         try {
             if (editingHotspot) {
-                // 更新現有熱點
+                // 1. 先本地 optimistic update
+                setHotspots((prev) =>
+                    prev.map((h) =>
+                        h.id === editingHotspot.id
+                            ? { ...h, ...hotspotData }
+                            : h
+                    )
+                );
+                // 2. 再同步到 Supabase
                 const updatedHotspot = await updateHotspot(editingHotspot.id, {
                     title: hotspotData.title,
                     description: hotspotData.description,
                     severity: hotspotData.severity,
                     photo: hotspotData.photo,
                 });
-
-                if (updatedHotspot) {
-                    setHotspots((prev) =>
-                        prev.map((h) =>
-                            h.id === updatedHotspot.id ? updatedHotspot : h
-                        )
+                // 3. 若失敗，回滾本地狀態
+                if (!updatedHotspot) {
+                    // 重新 fetch 或 revert（這裡簡單做法：reload 全部）
+                    const allHotspots = await getHotspots();
+                    setHotspots(allHotspots);
+                    toast.error(
+                        language === "zh"
+                            ? "熱點更新失敗，已還原"
+                            : "Failed to update hotspot, reverted"
                     );
+                } else {
                     toast.success(
                         language === "zh" ? "熱點已更新" : "Hotspot updated"
                     );
-                } else {
-                    throw new Error("Failed to update hotspot");
                 }
             } else {
-                // 新增熱點的邏輯保持不變，由 HotspotForm 處理
-                // 這裡不需要手動添加，因為 Supabase 即時監聽會自動處理
+                // 新增熱點 optimistic update
+                const tempId = "temp-" + Date.now();
+                const optimisticHotspot: Hotspot = {
+                    ...hotspotData,
+                    id: tempId,
+                    createdAt: new Date(),
+                };
+                setHotspots((prev) => [optimisticHotspot, ...prev]);
+
+                // 呼叫 createHotspot 寫入資料庫
+                const newHotspot = await createHotspot(hotspotData);
+
+                // 若失敗，移除暫時 marker
+                if (!newHotspot) {
+                    setHotspots((prev) => prev.filter((h) => h.id !== tempId));
+                    toast.error(
+                        language === "zh"
+                            ? "熱點新增失敗"
+                            : "Failed to create hotspot"
+                    );
+                }
+                // 若成功，等 Supabase 推播自動 patch
             }
         } catch (error) {
             console.error("Error saving hotspot:", error);
@@ -268,18 +299,30 @@ const Map = ({ serverHotspots }: { serverHotspots: Hotspot[] }) => {
 
     const handleDeleteHotspot = async (id: string) => {
         setIsDeleting(true);
+        // 1. 先本地 optimistic update
+        setHotspots((prev) => prev.filter((h) => h.id !== id));
         try {
+            // 2. 再同步到 Supabase
             const success = await deleteHotspotApi(id);
             if (success) {
-                // 不需要手動更新狀態，Supabase 即時監聽會處理
                 toast.success(
                     language === "zh" ? "熱點已刪除" : "Hotspot deleted"
                 );
             } else {
-                throw new Error("Failed to delete hotspot");
+                // 3. 若失敗，回滾本地狀態
+                const allHotspots = await getHotspots();
+                setHotspots(allHotspots);
+                toast.error(
+                    language === "zh"
+                        ? "刪除熱點失敗，已還原"
+                        : "Failed to delete hotspot, reverted"
+                );
             }
         } catch (error) {
             console.error("Error deleting hotspot:", error);
+            // 回滾本地狀態
+            const allHotspots = await getHotspots();
+            setHotspots(allHotspots);
             toast.error(
                 language === "zh" ? "刪除熱點失敗" : "Failed to delete hotspot"
             );

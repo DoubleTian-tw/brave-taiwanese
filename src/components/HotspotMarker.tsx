@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import Image from "next/image";
 import { Hotspot, Language } from "../types";
 import { translations } from "../utils/translations";
-import { Calendar, Camera, MapPin, Edit, Trash2 } from "lucide-react";
+import { Calendar, Camera, MapPin, Edit, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -13,6 +13,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { reverseGeocode } from "@/utils/geocoding";
 
 interface HotspotMarkerProps {
     hotspot: Hotspot;
@@ -54,6 +55,31 @@ export const HotspotMarker: React.FC<HotspotMarkerProps> = ({
 }) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const t = translations[language];
+    const [address, setAddress] = useState<string | null>(
+        hotspot.address || null
+    );
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!hotspot.address && hotspot.lat && hotspot.lng) {
+            setLoading(true);
+            setError(null);
+            reverseGeocode(hotspot.lat, hotspot.lng)
+                .then((result) => {
+                    if (result.success && result.address) {
+                        setAddress(result.address.formatted);
+                    } else {
+                        setError(t.addressNotFound);
+                    }
+                })
+                .catch(() => setError(t.addressError))
+                .finally(() => setLoading(false));
+        } else {
+            setAddress(hotspot.address || null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hotspot.lat, hotspot.lng, hotspot.address, language]);
 
     const getSeverityColor = (severity: Hotspot["severity"]) => {
         switch (severity) {
@@ -124,16 +150,54 @@ export const HotspotMarker: React.FC<HotspotMarkerProps> = ({
                             )}
 
                             <div className="border-t border-gray-100 pt-3 space-y-2">
+                                {/* 地址信息 */}
+                                <div className="bg-blue-50 rounded-lg p-3">
+                                    <div className="flex items-start space-x-2">
+                                        <MapPin className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-gray-700">
+                                            {loading && (
+                                                <span className="flex items-center">
+                                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                                    {t.gettingAddress}
+                                                </span>
+                                            )}
+                                            {error && (
+                                                <span className="text-red-500">
+                                                    {error}
+                                                </span>
+                                            )}
+                                            {!loading && !error && address && (
+                                                <span>{address}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 座標信息 */}
                                 <div className="flex items-center space-x-2 text-xs text-gray-500">
                                     <MapPin className="h-3 w-3" />
-                                    <span>{`Lat: ${hotspot.lat.toFixed(
-                                        3
-                                    )}, Lng: ${hotspot.lng.toFixed(3)}`}</span>
+                                    <span>
+                                        {/* {t.coordinates}:{" "} */}
+                                        {hotspot.lat.toFixed(6)},{" "}
+                                        {hotspot.lng.toFixed(6)}
+                                    </span>
                                 </div>
+                                {/* 創建時間 */}
                                 <div className="flex items-center space-x-2 text-xs text-gray-500">
                                     <Calendar className="h-3 w-3" />
                                     <span>
-                                        {hotspot.createdAt.toLocaleString()}
+                                        {hotspot.createdAt.toLocaleString(
+                                            "zh-TW",
+                                            {
+                                                year: "numeric",
+                                                month: "2-digit",
+                                                day: "2-digit",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                second: "2-digit",
+                                                hour12: false,
+                                            }
+                                        )}
                                     </span>
                                 </div>
                             </div>

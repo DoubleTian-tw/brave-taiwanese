@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { X, Camera, AlertTriangle } from "lucide-react";
-import { Hotspot, Language } from "@/types";
+import { Hotspot, Language, AddressInfo } from "@/types";
 import { translations } from "@/utils/translations";
+import { reverseGeocode } from "@/utils/geocoding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,9 +41,10 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
     const [photo, setPhoto] = useState<string | undefined>(undefined);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // 僅用於儲存，不顯示
+    const [address, setAddress] = useState<AddressInfo | null>(null);
     const t = translations[language];
 
-    // 當編輯熱點時，初始化表單數據
     useEffect(() => {
         if (editingHotspot) {
             setTitle(editingHotspot.title);
@@ -50,7 +52,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
             setSeverity(editingHotspot.severity);
             setPhoto(editingHotspot.photo);
         } else {
-            // 重置表單
             setTitle("");
             setDescription("");
             setSeverity("medium");
@@ -58,6 +59,27 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
         }
         setPhotoFile(null);
     }, [editingHotspot, open]);
+
+    // 自動取得地址，僅儲存不顯示
+    useEffect(() => {
+        if (open && position.lat && position.lng) {
+            (async () => {
+                try {
+                    const result = await reverseGeocode(
+                        position.lat,
+                        position.lng
+                    );
+                    if (result.success && result.address) {
+                        setAddress(result.address);
+                    } else {
+                        setAddress(null);
+                    }
+                } catch {
+                    setAddress(null);
+                }
+            })();
+        }
+    }, [open, position.lat, position.lng]);
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -81,8 +103,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
 
         try {
             let photoUrl: string | undefined = photo;
-
-            // 如果有新上傳的照片，先上傳
             if (photoFile) {
                 const uploadedUrl = await uploadHotspotPhoto(photoFile);
                 if (uploadedUrl == null) {
@@ -92,7 +112,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                 }
                 photoUrl = uploadedUrl;
             }
-
             const hotspotData = {
                 lat: position.lat,
                 lng: position.lng,
@@ -100,13 +119,11 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                 description: description.trim(),
                 severity,
                 photo: photoUrl,
+                address: address?.formatted,
             };
-
             if (editingHotspot) {
-                // 編輯模式：直接調用 onSave，由父元件處理更新邏輯
                 onSave(hotspotData);
             } else {
-                // 新增模式：調用 createHotspot API
                 const newHotspot = await createHotspot(hotspotData);
                 if (newHotspot) {
                     onSave(newHotspot);
@@ -135,7 +152,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
             setIsSubmitting(false);
             return;
         }
-
         setIsSubmitting(false);
     };
 
@@ -194,7 +210,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                                 required
                             />
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 {t.description}
@@ -206,7 +221,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                                 className="resize-none"
                             />
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                 {t.severity}
@@ -232,7 +246,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                                 ))}
                             </div>
                         </div>
-
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 {t.uploadPhoto}
@@ -268,7 +281,6 @@ export const HotspotForm: React.FC<HotspotFormProps> = ({
                             </div>
                         </div>
                     </div>
-
                     <DialogFooter className="flex flex-row space-x-3 pt-4 px-6 pb-6">
                         <Button
                             type="button"
